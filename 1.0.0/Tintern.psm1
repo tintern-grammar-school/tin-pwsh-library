@@ -23,6 +23,10 @@ function Write-TnLogMessage {
 
     $platform = Get-TnPlatform
 
+    if (-not ($($global:log_name))) {
+        $($global:log_name) = "log"
+    }
+
     switch ($platform) {
         1 { $log_filepath = "C:\Logs\$($global:log_name)" }
         2 { $log_filepath = "/Users/Shared/pwsh_logs/$($global:log_name)" }
