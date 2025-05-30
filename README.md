@@ -25,9 +25,11 @@ PS /Users/jcleary> $PROFILE
 /Users/username/.config/powershell/Microsoft.PowerShell_profile.ps1
 ```
 
+If you open a new PowerShell window it will import, but you can also force it (e.g. within a session) with:
+
 ```powershell
 PS /Users/jcleary> cat $PROFILE                    
-Import-Module Tintern
+Import-Module Tintern -Force
 ```
 
 
