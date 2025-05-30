@@ -24,7 +24,7 @@ function Write-TnLogMessage {
     $platform = Get-TnPlatform
 
     if (-not ($($global:log_name))) {
-        $($global:log_name) = "log"
+        $global:log_name = "log"
     }
 
     switch ($platform) {
