@@ -60,3 +60,70 @@ function Write-TnField {
     Write-Host -NoNewline "$title" -ForegroundColor Green
     Write-Host "$value" -ForegroundColor White
 }
+
+function New-TnListEntry {
+    param (
+        [string]$group_id,
+        [string]$site_id,
+        [string]$list_id,
+        [string]$project_name,
+        [string]$project_description
+    )
+
+	if (-not $list_id) { throw "Missing parameter: list_id" }
+	if (-not $site_id) { throw "Missing parameter: site_id" }
+	if (-not $group_id) { throw "Missing parameter: group_id" }
+	if (-not $project_name) { throw "Missing parameter: project_name" }
+	if (-not $project_description) { throw "Missing parameter: project_description" }
+
+    $upn = (Get-MgContext).Account
+
+    Write-TNLogMessage "Creating Planner Plan..."
+	
+	# Write-TNLogMessage "New-MgPlannerPlan -Owner $group_id -Title `"$($project_name) Tasks`""
+    $plan = New-MgPlannerPlan -Owner $group_id -Title "$($project_name) Tasks"
+	
+	Write-TNLogMessage "New Task List Created at: https://tasks.office.com/$($upn.Split('@')[1])/Home/PlanViews/$($plan.Id)"
+	$plan_url = "https://tasks.office.com/$($upn.Split('@')[1])/Home/PlanViews/$($plan.Id)"
+
+    Write-TNLogMessage "Adding entry to SharePoint list..."
+	
+    $userInput = @{
+		fields = @{
+			"Project Lead" = $upn
+			"Group" = $group_id
+			"Title"  = $project_name
+			"Description"  = $project_description
+			"Planner"      = $plan_url
+    	}
+	}
+
+	# Get all columns from the list
+	$columns = Get-MgSiteListColumn -SiteId $site_id -ListId $list_id
+
+	# Create a hashtable mapping DisplayName -> Name
+	$columnMap = @{}
+	foreach ($col in $columns) {
+	    $columnMap[$col.DisplayName] = $col.Name
+	}
+	
+	# $columnMap | format-table
+
+	$fields = @{}
+	foreach ($key in $userInput.fields.Keys) {
+	    if ($key -eq "Title") { continue }
+	    if ($columnMap.ContainsKey($key)) {
+	        $internal = $columnMap[$key]
+	        $fields[$internal] = $userInput.fields[$key]
+	    }
+	}
+	
+	$fields | format-table
+
+	$userInput = @{ fields = $fields }
+
+	Write-TNLogMessage "New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $($userInput | ConvertTo-Json -Depth 5)"
+    New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $userInput
+
+    Write-TNLogMessage "Project entry created successfully."
+}
