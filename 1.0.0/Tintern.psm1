@@ -93,7 +93,7 @@ function New-TnListEntry {
 
     $userInput = @{
 		fields = @{
-			## "Project Lead" = $upn
+			"Project Lead" = "6"
 			"Title"  = $project_name
 			"Description"  = $project_description
 	        ## "Planner"      = @{
@@ -114,17 +114,17 @@ function New-TnListEntry {
 	
 	$columnMap | format-table
 
-	## $fields = @{}
-	## foreach ($key in $userInput.fields.Keys) {
-	##     if ($key -eq "Title") {
-	##         $fields["Title"] = $userInput.fields[$key]
-	##     }
-	##     elseif ($columnMap.ContainsKey($key)) {
-	##         $internal = $columnMap[$key]
-	##         $fields[$internal] = $userInput.fields[$key]
-	##     }
-	## }	
-	## $userInput = @{ fields = $fields }
+	$fields = @{}
+	foreach ($key in $userInput.fields.Keys) {
+	    if ($key -eq "Title") {
+	        $fields["Title"] = $userInput.fields[$key]
+	    }
+	    elseif ($columnMap.ContainsKey($key)) {
+	        $internal = $columnMap[$key]
+	        $fields[$internal] = $userInput.fields[$key]
+	    }
+	}	
+	$userInput = @{ fields = $fields }
 
 	$userInput | format-table
 	
