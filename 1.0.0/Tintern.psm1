@@ -88,13 +88,18 @@ function New-TnListEntry {
 
     Write-TNLogMessage "Adding entry to SharePoint list..."
 	
+	# {[Description, Tasks], [Url, https://planner.cloud.microsoft/webui/plan/y_X8qBX5-Ea7cMyPWV3snMgAHsd4/view/board?tid=1e1659cd-21d7-4da0-a2e5-22666a880027]}
+
+
     $userInput = @{
 		fields = @{
-			"Project Lead" = $upn
-			"Group" = $group_id
+			## "Project Lead" = $upn
 			"Title"  = $project_name
 			"Description"  = $project_description
-			"Planner"      = $plan_url
+	        ## "Planner"      = @{
+	        ##     Description = "Tasks"
+	        ##     Url         = "$plan_url"
+	        ## }
     	}
 	}
 
@@ -107,23 +112,26 @@ function New-TnListEntry {
 	    $columnMap[$col.DisplayName] = $col.Name
 	}
 	
-	# $columnMap | format-table
+	$columnMap | format-table
 
-	$fields = @{}
-	foreach ($key in $userInput.fields.Keys) {
-	    if ($key -eq "Title") { continue }
-	    if ($columnMap.ContainsKey($key)) {
-	        $internal = $columnMap[$key]
-	        $fields[$internal] = $userInput.fields[$key]
-	    }
-	}
+	## $fields = @{}
+	## foreach ($key in $userInput.fields.Keys) {
+	##     if ($key -eq "Title") {
+	##         $fields["Title"] = $userInput.fields[$key]
+	##     }
+	##     elseif ($columnMap.ContainsKey($key)) {
+	##         $internal = $columnMap[$key]
+	##         $fields[$internal] = $userInput.fields[$key]
+	##     }
+	## }	
+	## $userInput = @{ fields = $fields }
+
+	$userInput | format-table
 	
-	$fields | format-table
+	$($userInput | ConvertTo-Json -Depth 5)
 
-	$userInput = @{ fields = $fields }
+	Write-TNLogMessage "New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $userInput"
+    New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $userInput -Debug
 
-	Write-TNLogMessage "New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $($userInput | ConvertTo-Json -Depth 5)"
-    New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $userInput
-
-    Write-TNLogMessage "Project entry created successfully."
+    Write-TNLogMessage "Project entry created successfully..."
 }
