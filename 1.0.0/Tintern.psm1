@@ -194,12 +194,23 @@ function Get-TNVendorFromOui {
 function ConvertTo-TNMACAddress {
     param (
         [Parameter(Mandatory = $true)]
-        [string]$mac
+        [string]$MAC,
+        [switch]$OutHyphens,
+        [switch]$OutSpaces
     )
 
     # Remove spaces, dashes, and colons
-    $cleaned = $mac -replace '[-:\s]', ''
+    $cleaned = $MAC -replace '[-:\s]', ''
 
-    # Insert colon every 2 characters
-    ($cleaned -split '(.{2})' | Where-Object { $_ }) -join ':'
+    # Choose separator
+    if ($OutSpaces) {
+        $sep = ' '
+    } elseif ($OutHyphens) {
+        $sep = '-'
+    } else {
+        $sep = ':'
+    }
+
+    # Insert separator every 2 characters
+    ($cleaned -split '(.{2})' | Where-Object { $_ }) -join $sep
 }
