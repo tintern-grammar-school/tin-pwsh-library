@@ -135,3 +135,71 @@ function New-TnListEntry {
 
     Write-TNLogMessage "Project entry created successfully..."
 }
+
+function New-TNTemporaryPassword {
+	
+	$words   = "soda", "star", "sofa", "tree", "seed", "rose", "nest", "crow", "shoe", "nose", "tank", "book", "tent", "home", "soda", "moon", "bird", "dirt", "meat", "milk", "show", "room", "bike", "game", "heat", "mice", "hill", "rock", "mask", "road", "stew", "shop", "sink", "test", "crib"
+	$colours = "red", "blue", "white", "green", "pink", "yellow", "mauve", "scarlet", "gray", "violet", "purple"
+	$numbers = "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
+	$symbols = "#", "$", "!", "@", "¶"
+	$animals = "cow", "bird", "dog", "cat", "fish", "ant", "horse", "tiger", "leopard", "bear", "mouse"
+
+	$index1 = Get-Random -Maximum $words.Count
+	$index2 = Get-Random -Maximum $colours.Count
+	$index3 = Get-Random -Maximum $numbers.Count
+	$index4 = Get-Random -Maximum $symbols.Count
+	$index5 = Get-Random -Maximum $animals.Count
+
+	$part1 = $words[$index1]
+	$part2 = $colours[$index2]
+	$part3 = $symbols[$index4]
+	$part4 = $animals[$index4]
+	$part5 = $numbers[$index3]
+
+	$joined = "$part2$part1$part3$part4$part5"
+
+	# Randomize capitalization
+	$final = ($joined.ToCharArray() | ForEach-Object {
+	    if (Get-Random -Minimum 0 -Maximum 2) { $_.ToString().ToUpper() } else { $_.ToString().ToLower() }
+	}) -join ''
+
+	Write-Output $final
+	
+}
+
+function Get-TNVendorFromOui {
+	
+	param (
+	    [Parameter(Mandatory=$true)][string]$mac
+	)
+
+	# Normalize the identifier
+	if ($mac -match "^[0-9A-Fa-f]{2}([-:]?[0-9A-Fa-f]{2}){2}([-:]?[0-9A-Fa-f]{2}){0,3}$") {
+    
+	    $url = "https://api.macvendors.com/$mac"
+	    $response = Invoke-RestMethod -Uri $url -Method Get
+
+	    if ($response) {
+	        Write-Output "$mac vendor is: $response"
+	    } else {
+	        Write-Output "$mac not found in database."
+	    }
+	} else {
+	    Write-Output "Invalid MAC address or OUI format"
+	    exit 1
+	}
+	
+}
+
+function ConvertTo-TNMACAddress {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$mac
+    )
+
+    # Remove spaces, dashes, and colons
+    $cleaned = $mac -replace '[-:\s]', ''
+
+    # Insert colon every 2 characters
+    ($cleaned -split '(.{2})' | Where-Object { $_ }) -join ':'
+}
