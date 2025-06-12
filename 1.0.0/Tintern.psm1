@@ -214,3 +214,50 @@ function ConvertTo-TNMACAddress {
     # Insert separator every 2 characters
     ($cleaned -split '(.{2})' | Where-Object { $_ }) -join $sep
 }
+
+function Trim-TNScreenRecording {
+    param(
+        [string]$path,
+        [string]$startTime,
+        [string]$endTime
+    )
+
+    if (-not $path)       { $path      = Read-Host "Enter full path to video" }
+    if (-not $startTime -and -not $endTime) {
+        Write-TNLogMessage "You must specify at least -startTime or -endTime"
+        return
+    }
+
+    $ffmpeg = "/opt/homebrew/bin/ffmpeg"
+    $dir = Split-Path $path
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($path)
+    $ext = [System.IO.Path]::GetExtension($path)
+    $output = Join-Path $dir "$name.trimmed$ext"
+
+    # Trim before cut
+    if ($startTime) {
+        & $ffmpeg -i $path -ss 00:00:00 -to $startTime -c copy "$dir/part_before.mp4"
+    }
+
+    # Trim after cut
+    if ($endTime) {
+        & $ffmpeg -i $path -ss $endTime -c copy "$dir/part_after.mp4"
+    }
+
+    # Create concat file
+    $fileList = @()
+    if ($startTime) { $fileList += "file 'part_before.mp4'" }
+    if ($endTime)   { $fileList += "file 'part_after.mp4'" }
+
+    $fileList | Set-Content -Path "$dir/filelist.txt" -Encoding ascii
+
+    # Combine parts
+    Push-Location $dir
+    & $ffmpeg -f concat -safe 0 -i "filelist.txt" -c copy "$output"
+    Pop-Location
+
+    # Cleanup
+    if (Test-Path "$dir/part_before.mp4") { Remove-Item "$dir/part_before.mp4" }
+    if (Test-Path "$dir/part_after.mp4")  { Remove-Item "$dir/part_after.mp4" }
+    Remove-Item "$dir/filelist.txt"
+}
