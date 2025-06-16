@@ -136,7 +136,7 @@ function New-TnListEntry {
     Write-TNLogMessage "Project entry created successfully..."
 }
 
-function New-TNTemporaryPassword {
+function New-TnTemporaryPassword {
 	
 	$words   = "soda", "star", "sofa", "tree", "seed", "rose", "nest", "crow", "shoe", "nose", "tank", "book", "tent", "home", "soda", "moon", "bird", "dirt", "meat", "milk", "show", "room", "bike", "game", "heat", "mice", "hill", "rock", "mask", "road", "stew", "shop", "sink", "test", "crib"
 	$colours = "red", "blue", "white", "green", "pink", "yellow", "mauve", "scarlet", "gray", "violet", "purple"
@@ -167,7 +167,7 @@ function New-TNTemporaryPassword {
 	
 }
 
-function Get-TNVendorFromOui {
+function Get-TnVendorFromOui {
 	
 	param (
 	    [Parameter(Mandatory=$true)][string]$mac
@@ -191,7 +191,7 @@ function Get-TNVendorFromOui {
 	
 }
 
-function ConvertTo-TNMACAddress {
+function ConvertTo-TnMACAddress {
     param (
         [Parameter(Mandatory = $true)]
         [string]$MAC,
@@ -215,7 +215,7 @@ function ConvertTo-TNMACAddress {
     ($cleaned -split '(.{2})' | Where-Object { $_ }) -join $sep
 }
 
-function Trim-TNScreenRecording {
+function Trim-TnScreenRecording {
     param(
         [string]$path,
         [string]$startTime,
@@ -260,4 +260,111 @@ function Trim-TNScreenRecording {
     if (Test-Path "$dir/part_before.mp4") { Remove-Item "$dir/part_before.mp4" }
     if (Test-Path "$dir/part_after.mp4")  { Remove-Item "$dir/part_after.mp4" }
     Remove-Item "$dir/filelist.txt"
+}
+
+
+function Get-TnConvertVideoToTargetSize {
+    param (
+        [string]$input
+    )
+
+    $ffmpeg = "/opt/homebrew/bin/ffmpeg"
+
+    if (-not $input) {
+        $input = Read-Host "Enter full path to input video"
+    }
+
+    $dir = Split-Path $input
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($input)
+    $ext = [System.IO.Path]::GetExtension($input)
+    $output = Join-Path $dir "$name.compressed$ext"
+
+    $targetMB = Read-Host "Enter target file size in MB"
+    $targetBytes = [int]$targetMB * 1024 * 1024
+
+    # Get video duration in seconds
+    $duration = & $ffmpeg -i $input 2>&1 | ForEach-Object {
+        if ($_ -match "Duration: (\d{2}):(\d{2}):(\d{2})") {
+            $h = [int]$matches[1]; $m = [int]$matches[2]; $s = [int]$matches[3]
+            return ($h * 3600) + ($m * 60) + $s
+        }
+    }
+
+    if (-not $duration) {
+        Write-TNLogMessage "Could not determine video duration."
+        return
+    }
+
+    # Total bitrate in bits/sec
+	$adjustedTargetBytes = [math]::Floor($targetBytes * 0.92)
+	$total_bitrate = [math]::Floor(($adjustedTargetBytes * 8) / $duration)
+    $audio_bitrate = 128000  # 128 kbps
+    $videon_bitrate = $total_bitrate - $audio_bitrate
+
+    Write-TNLogMessage "Duration: $duration sec"
+    Write-TNLogMessage "Target bitrate: $total_bitrate bps (video: $video_bitrate bps)"
+
+    # 2-pass encode
+    & $ffmpeg -y -i $input -c:v libx264 -b:v $video_bitrate -pass 1 -an -f mp4 /dev/null
+    & $ffmpeg -i $input -c:v libx264 -b:v $video_bitrate -pass 2 -c:a aac -b:a 128k $output
+
+    Write-TNLogMessage "Compressed video written to: $output"
+}
+
+
+
+function Convert-TnUTCtoAEST {
+    param (
+        [Parameter(Mandatory)]
+        [string]$UtcIsoDate
+    )
+
+	Write-TnLogMessage "This function requires in put in ISO8601 format (e.g. from AW)."
+    $UtcIsoDate = $UtcIsoDate -replace '\sUTC$', ''
+
+    if ($IsMacOS) {
+        $utcDate = [DateTime]::Parse($UtcIsoDate, $null, [System.Globalization.DateTimeStyles]::AssumeUniversal)
+        $localDate = $utcDate.ToLocalTime()
+        return $localDate.ToString("yyyy-MM-dd HH:mm:ss 'AEST'")
+    } else {
+        Write-TnLogMessage "This function is intended to run on macOS with system timezone set to AEST."
+    }
+}
+
+
+function Download-TnVideo {
+    param(
+        [Parameter(Mandatory)]
+        [string]$url,
+        [switch]$keep_audio,
+		[switch]$debugging
+    )
+
+	if ($debugging) {
+		$global:tnDebug = $true
+	}
+
+	# Write-Output $global:tnDebug
+
+    $yt_dlp = "/opt/homebrew/bin/yt-dlp"
+    $ffmpeg = "/opt/homebrew/bin/ffmpeg"
+    $output_dir = "/Users/Shared/downloaded-videos/yt_video_$date_$(Get-Random)"
+	$date = Get-TnFSDate
+	
+	Write-TnLogMessage "$output_dir.%(ext)s"
+
+    # Download best video+audio
+    & "$yt_dlp" "-f" "bv*+ba/b" "--ffmpeg-location" "$ffmpeg" "$url" "-o" "$output_dir.%(ext)s"
+	$downloaded_file = Get-ChildItem -Path "/Users/Shared/downloaded-videos" -Filter "$(Split-Path $output_dir -Leaf).*" | Select-Object -First 1
+    Write-TnLogMessage "Video saved to $downloaded_file"
+
+    # Convert to h264 + aac in a .mp4
+	& "$ffmpeg" -i "$downloaded_file" -c:v libx264 -c:a aac -movflags +faststart "$output_dir.mp4"
+    Write-TnLogMessage "Video converted to $output_dir.mp4"
+
+    # Optionally extract audio
+    if ($keep_audio) {
+		& "$ffmpeg" -i "$output_dir.*"-vn -c:a aac -b:a 192k "$output_dir.m4a"
+	}
+
 }
