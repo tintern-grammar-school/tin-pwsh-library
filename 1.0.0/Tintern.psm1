@@ -78,15 +78,15 @@ function New-TnListEntry {
 
     $upn = (Get-MgContext).Account
 
-    Write-TNLogMessage "Creating Planner Plan..."
+    Write-TnLogMessage "Creating Planner Plan..."
 	
-	# Write-TNLogMessage "New-MgPlannerPlan -Owner $group_id -Title `"$($project_name) Tasks`""
+	# Write-TnLogMessage "New-MgPlannerPlan -Owner $group_id -Title `"$($project_name) Tasks`""
     $plan = New-MgPlannerPlan -Owner $group_id -Title "$($project_name) Tasks"
 	
-	Write-TNLogMessage "New Task List Created at: https://tasks.office.com/$($upn.Split('@')[1])/Home/PlanViews/$($plan.Id)"
+	Write-TnLogMessage "New Task List Created at: https://tasks.office.com/$($upn.Split('@')[1])/Home/PlanViews/$($plan.Id)"
 	$plan_url = "https://tasks.office.com/$($upn.Split('@')[1])/Home/PlanViews/$($plan.Id)"
 
-    Write-TNLogMessage "Adding entry to SharePoint list..."
+    Write-TnLogMessage "Adding entry to SharePoint list..."
 	
 	# {[Description, Tasks], [Url, https://planner.cloud.microsoft/webui/plan/y_X8qBX5-Ea7cMyPWV3snMgAHsd4/view/board?tid=1e1659cd-21d7-4da0-a2e5-22666a880027]}
 
@@ -130,10 +130,10 @@ function New-TnListEntry {
 	
 	$($userInput | ConvertTo-Json -Depth 5)
 
-	Write-TNLogMessage "New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $userInput"
+	Write-TnLogMessage "New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $userInput"
     New-MgSiteListItem -SiteId $site_id -ListId $list_id -BodyParameter $userInput -Debug
 
-    Write-TNLogMessage "Project entry created successfully..."
+    Write-TnLogMessage "Project entry created successfully..."
 }
 
 function New-TnTemporaryPassword {
@@ -224,7 +224,7 @@ function Trim-TnScreenRecording {
 
     if (-not $path)       { $path      = Read-Host "Enter full path to video" }
     if (-not $startTime -and -not $endTime) {
-        Write-TNLogMessage "You must specify at least -startTime or -endTime"
+        Write-TnLogMessage "You must specify at least -startTime or -endTime"
         return
     }
 
@@ -291,7 +291,7 @@ function Get-TnConvertVideoToTargetSize {
     }
 
     if (-not $duration) {
-        Write-TNLogMessage "Could not determine video duration."
+        Write-TnLogMessage "Could not determine video duration."
         return
     }
 
@@ -301,14 +301,14 @@ function Get-TnConvertVideoToTargetSize {
     $audio_bitrate = 128000  # 128 kbps
     $videon_bitrate = $total_bitrate - $audio_bitrate
 
-    Write-TNLogMessage "Duration: $duration sec"
-    Write-TNLogMessage "Target bitrate: $total_bitrate bps (video: $video_bitrate bps)"
+    Write-TnLogMessage "Duration: $duration sec"
+    Write-TnLogMessage "Target bitrate: $total_bitrate bps (video: $video_bitrate bps)"
 
     # 2-pass encode
     & $ffmpeg -y -i $input -c:v libx264 -b:v $video_bitrate -pass 1 -an -f mp4 /dev/null
     & $ffmpeg -i $input -c:v libx264 -b:v $video_bitrate -pass 2 -c:a aac -b:a 128k $output
 
-    Write-TNLogMessage "Compressed video written to: $output"
+    Write-TnLogMessage "Compressed video written to: $output"
 }
 
 
