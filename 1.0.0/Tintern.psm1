@@ -142,7 +142,7 @@ function New-TnTemporaryPassword {
 	$colours = "red", "blue", "white", "green", "pink", "yellow", "mauve", "scarlet", "gray", "violet", "purple"
 	$numbers = "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
 	$symbols = "#", "$", "!", "@", "¶"
-	$animals = "cow", "bird", "dog", "cat", "fish", "ant", "horse", "tiger", "leopard", "bear", "mouse"
+	$animals = "bird", "dog", "cat", "fish", "ant", "horse", "tiger", "leopard", "bear", "mouse","giraffe","pidgeon"
 
 	$index1 = Get-Random -Maximum $words.Count
 	$index2 = Get-Random -Maximum $colours.Count
