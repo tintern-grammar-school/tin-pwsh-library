@@ -58,6 +58,7 @@ function Write-TnField {
     )
 
     Write-Host -NoNewline "$title" -ForegroundColor Green
+	Write-Host -NoNewline ": " -ForegroundColor Green
     Write-Host "$value" -ForegroundColor White
 }
 
