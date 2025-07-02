@@ -360,12 +360,12 @@ function Download-TnVideo {
     Write-TnLogMessage "Video saved to $downloaded_file"
 
     # Convert to h264 + aac in a .mp4
-	& "$ffmpeg" -i "$downloaded_file" -c:v libx264 -c:a aac -movflags +faststart "$output_dir.mp4"
-    Write-TnLogMessage "Video converted to $output_dir.mp4"
+	& "$ffmpeg" -i "$downloaded_file" -c:v libx264 -c:a aac -movflags +faststart "$($output_dir)_output.mp4"
+    Write-TnLogMessage "Video converted to $output_dir.output.mp4"
 
     # Optionally extract audio
     if ($keep_audio) {
-		& "$ffmpeg" -i "$output_dir.*"-vn -c:a aac -b:a 192k "$output_dir.m4a"
+		& "$ffmpeg" -i "$output_dir.*"-vn -c:a aac -b:a 192k "$($output_dir)_output.m4a"
 	}
 
 }
