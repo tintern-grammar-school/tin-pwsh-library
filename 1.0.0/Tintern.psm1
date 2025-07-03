@@ -107,6 +107,25 @@ function Connect-TnGraphAppSecret {
     }
 }
 
+function Get-TnUserGroups {
+    param (
+        [string]$upn,
+		[switch]$out_json
+    )
+	
+	$user = Get-MgUser -UserId $upn
+	$user_groups = (Get-MgUserMemberOf -UserId $user.Id) | Select-Object Id,@{n='DisplayName';e={ $_.AdditionalProperties['displayName'] }}
+		
+	if ($out_json){
+		$user_groups | ConvertTo-Json -Depth 5 | Write-Host
+	} else {
+		$user_groups
+	}
+
+	
+	
+}
+
 function Get-TnPlatform {
     # Returns 1 = Windows, 2 = macOS, 3 = Linux
     if ($IsWindows) { return 1 }
