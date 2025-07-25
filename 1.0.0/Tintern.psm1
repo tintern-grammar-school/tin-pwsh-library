@@ -497,3 +497,52 @@ function Download-TnVideo {
 	}
 
 }
+
+function Send-TnPushoverNotification {
+	
+    param(
+        [Parameter(Mandatory)][string]$token,
+        [Parameter(Mandatory)][string]$user,
+        [Parameter(Mandatory)][string]$message,
+		[switch]$debugging
+    )
+
+    try {
+        return Invoke-RestMethod -Uri "https://api.pushover.net/1/messages.json" -Method Post -Form @{
+            token   = $token
+            user    = $user
+            message = $message
+        } -ErrorAction Stop
+    } catch {
+        if ($_.Exception -and $_.ErrorDetails -and $_.ErrorDetails.Message) {
+            return $_.ErrorDetails.Message
+        } else {
+            return @{ error = $_.Exception.Message }
+        }
+    }
+
+}
+
+function Show-TnScriptMenu {
+    
+	param(
+        [Parameter(Mandatory)][string]$menu_name,
+        [Parameter(Mandatory)][string]$menu_items,
+		[switch]$debugging
+    )
+	
+	
+	# Input an indexed object
+	Write-Host ""
+	Write-Host "---------------"
+	Write-Host "$menu_name"
+	Write-Host "---------------"
+	foreach ($item in $menu_items) {
+		if ($item.display -eq $true){
+			Write-Host "$($item.id). $($item.name)"
+		}
+	}
+	Write-Host ""
+	return $menu_command = $( Read-Host "What task do you want to run? (enter menu item number or 'exit')" )
+	
+}
