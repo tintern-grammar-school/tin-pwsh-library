@@ -539,7 +539,11 @@ function Show-TnScriptMenu {
 	Write-Host ("-" * $menu_name.Length)
 	foreach ($item in $menu_items) {
 		if ($item.display -eq $true){
-			Write-Host "$($item.id). $($item.name)"
+			if ($item.id -eq $null -and $item.name -eq $null){
+				Write-Host ""
+			} else {
+				Write-Host "$($item.id). $($item.name)"					
+			}
 		}
 	}
 	Write-Host ""
