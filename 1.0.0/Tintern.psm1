@@ -527,7 +527,7 @@ function Show-TnScriptMenu {
     
 	param(
         [Parameter(Mandatory)][string]$menu_name,
-        [Parameter(Mandatory)][string]$menu_items,
+		[Parameter(Mandatory)][object[]]$menu_items,
 		[switch]$debugging
     )
 	
