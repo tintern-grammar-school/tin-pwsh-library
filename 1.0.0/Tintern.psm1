@@ -534,9 +534,9 @@ function Show-TnScriptMenu {
 	
 	# Input an indexed object
 	Write-Host ""
-	Write-Host "---------------"
+	Write-Host ("-" * $menu_name.Length)
 	Write-Host "$menu_name"
-	Write-Host "---------------"
+	Write-Host ("-" * $menu_name.Length)
 	foreach ($item in $menu_items) {
 		if ($item.display -eq $true){
 			Write-Host "$($item.id). $($item.name)"
