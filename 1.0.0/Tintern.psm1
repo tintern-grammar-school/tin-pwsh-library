@@ -110,27 +110,60 @@ function Connect-TnGraphAppSecret {
 
 
 function Get-TnRecentlyModifiedUsers {
-	param (
-		[int]$days,
-		[string]$only_domain
-	)
+    param (
+        [int]$days,
+        [string]$only_domain,
+        [switch]$debugging
+    )
 
-	$since = (Get-Date).AddDays(-$days).ToString("o")
+    $since = (Get-Date).AddDays(-$days).ToString("o")
 
-	$logs = Get-MgAuditLogDirectoryAudit -All -Filter "activityDateTime ge $since and (activityDisplayName eq 'Update user')"
+    $logs = Get-MgAuditLogDirectoryAudit -All -Filter "activityDateTime ge $since and (activityDisplayName eq 'Update user')"
 
-	$changed_upns = $logs.TargetResources |
-	  Where-Object {
-	    $_.UserPrincipalName -like "*$only_domain" -and
-	    $_.UserPrincipalName -notmatch '\d'
-	  } |
-	  Select-Object -ExpandProperty UserPrincipalName -Unique
+    $changed_upns = @()
 
-	return $changed_upns
-	
+    foreach ($log in $logs) {
+        foreach ($target in $log.TargetResources) {
+            if ($target.UserPrincipalName -like "*$only_domain" -and
+                $target.UserPrincipalName -notmatch '\d') {
+
+                # Flatten ModifiedProperties into a friendlier structure
+                $modProps = @()
+                if ($target.ModifiedProperties) {
+                    foreach ($prop in $target.ModifiedProperties) {
+                        $modProps += [PSCustomObject]@{
+                            Property   = $prop.DisplayName
+                            OldValue   = $prop.OldValue
+                            NewValue   = $prop.NewValue
+                        }
+                    }
+                }
+
+                $changed_upns += [PSCustomObject]@{
+                    UserPrincipalName   = $target.UserPrincipalName
+                    ActivityDateTime    = $log.ActivityDateTime
+					ActivityDateTimeAEST = $(Convert-TnUTCtoAEST -UtcIsoDate (Get-Date $log.ActivityDateTime -Format "o"))
+					ActivityDisplayName = $log.ActivityDisplayName
+                    Category            = $log.Category
+                    AdditionalDetails   = $log.AdditionalDetails -join ', '
+                    ModifiedProperties  = $modProps
+                }
+            }
+        }
+    }
+
+    if ($debugging) {
+        $logs | Format-List
+    }
+
+    # Deduplicate by UPN, keep latest change
+    $changed_upns = $changed_upns |
+                    Sort-Object UserPrincipalName, ActivityDateTimeAEST, ActivityDateTime -Descending |
+                    Group-Object UserPrincipalName |
+                    ForEach-Object { $_.Group[0] }
+
+    return $changed_upns
 }
-
-
 
 function Get-TnUserGroups {
     param (
