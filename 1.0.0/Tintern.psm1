@@ -107,6 +107,31 @@ function Connect-TnGraphAppSecret {
     }
 }
 
+
+
+function Get-TnRecentlyModifiedUsers {
+	param (
+		[int]$days,
+		[string]$only_domain
+	)
+
+	$since = (Get-Date).AddDays(-$days).ToString("o")
+
+	$logs = Get-MgAuditLogDirectoryAudit -All -Filter "activityDateTime ge $since and (activityDisplayName eq 'Update user')"
+
+	$changed_upns = $logs.TargetResources |
+	  Where-Object {
+	    $_.UserPrincipalName -like "*$only_domain" -and
+	    $_.UserPrincipalName -notmatch '\d'
+	  } |
+	  Select-Object -ExpandProperty UserPrincipalName -Unique
+
+	return $changed_upns
+	
+}
+
+
+
 function Get-TnUserGroups {
     param (
         [string]$upn,
@@ -121,10 +146,59 @@ function Get-TnUserGroups {
 	} else {
 		$user_groups
 	}
-
-	
 	
 }
+
+function Get-TnAllActiveGroups {
+	param (
+		[string]$filter_string
+	)
+
+    Write-TnLogMessage "🔄 Getting all active groups..."
+
+	if ($filter_string){
+		$all_groups = Get-MgGroup -All -ConsistencyLevel eventual -CountVariable count -Filter "$filter_string"		
+	} else {
+		$all_groups = Get-MgGroup -All -ConsistencyLevel eventual -CountVariable count
+	}
+
+	Write-TnLogMessage "✅ $($all_groups.Count) active groups returned."
+
+	return $all_groups
+
+}
+
+function Get-TnFilterActiveGroupsByString {
+    param(
+		[object[]]$all_groups,
+		[string]$search_string
+	)
+
+	$filtered_groups = $all_groups | Where-Object { $_.DisplayName -like $search_string }
+	
+	Write-TnLogMessage "Total groups (for search) returned after filtering: $($filtered_groups.Count)"
+
+	return $filtered_groups
+}
+
+
+function Get-TnGroupMembers {
+	param (
+		[object[]]$groups
+	)
+	$group_members = @()
+	foreach ($group in $groups) {
+		$members = Get-MgGroupMember -GroupId $group.Id -All |
+		    Select-Object Id,
+		                  @{n="DisplayName";e={ $_.AdditionalProperties["displayName"] }},
+		                  @{n="UserPrincipalName";e={ $_.AdditionalProperties["userPrincipalName"] }}
+						  
+		if ($members) { $group_members += $members }
+	}
+	$group_members = $group_members | Sort-Object id -Unique
+	return $group_members
+}
+
 
 function Get-TnPlatform {
     # Returns 1 = Windows, 2 = macOS, 3 = Linux
