@@ -555,7 +555,10 @@ function Convert-TnUTCtoAEST {
         [string]$UtcIsoDate
     )
 
-	Write-TnLogMessage "This function requires in put in ISO8601 format (e.g. from AW)."
+	if ($debugging){
+		Write-TnLogMessage "This function requires in put in ISO8601 format (e.g. from AW)."		
+	}
+	
     $UtcIsoDate = $UtcIsoDate -replace '\sUTC$', ''
 
     if ($IsMacOS) {
