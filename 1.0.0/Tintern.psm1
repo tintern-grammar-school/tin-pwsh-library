@@ -740,3 +740,44 @@ function Show-TnScriptMenu {
 	return $menu_command = $( Read-Host "What task do you want to run? (enter menu item number or 'exit')" )
 	
 }
+
+
+
+
+# ---------- JSON Save/Load ----------
+# Relies on $global:script_datafile
+
+function Write-TnObjectJSONFile {
+    param(
+        [Parameter(Mandatory)]$object
+    )
+
+    try {
+        $json = $object | ConvertTo-Json -Depth 10
+        $json | Out-File -FilePath "$global:script_datafile" -Encoding UTF8
+        Write-TnLogMessage "💾 Data saved to `"$global:script_datafile`""
+    }
+    catch {
+        Write-TnLogMessage "❌ Failed to save JSON: $_"
+    }
+}
+
+
+function Get-TnObjectJSONFile {
+
+    if (Test-Path $global:script_datafile) {
+        try {
+            $json = Get-Content -Path "$global:script_datafile" -Raw
+            Write-TnLogMessage "✅ JSON loaded successfully."
+            return $json | ConvertFrom-Json
+        }
+        catch {
+            Write-TnLogMessage "❌ Failed to load JSON."
+	        return $false
+        }
+    }
+    else {
+        Write-TnLogMessage "⚠️  No existing JSON file found at $global:script_datafile."
+        return $false
+    }
+}
