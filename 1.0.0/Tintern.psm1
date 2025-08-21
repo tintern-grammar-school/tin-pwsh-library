@@ -1,3 +1,83 @@
+function Connect-TnGraphAppCertApiAccessToken {
+    param (
+        [string]$vault_api_creds_name,
+        #[bool]$debugging = $script:debugging ?? $false
+        [switch]$debugging
+    )
+
+    if (-not $vault_api_creds_name) {
+        throw "❌ vault_api_creds_name is required. Specify the name of the 1Password item to retrieve credentials from."
+    }
+
+    Write-TnLogMessage "🔐 Connecting to Microsoft Graph using certificate credentials from 1Password item '$vault_api_creds_name'..."
+
+    try {
+        $secretItemJson = op item get $vault_api_creds_name --format json 2>$null
+        if (-not $secretItemJson) {
+            throw "❌ 1Password item '$vault_api_creds_name' not found or accessible."
+        }
+
+        $secretItem = $secretItemJson | ConvertFrom-Json
+        $client_id   = $secretItem.fields | Where-Object { $_.label -eq "client_id" }   | Select-Object -ExpandProperty value
+        $tenant_id   = $secretItem.fields | Where-Object { $_.label -eq "tenant_id" }   | Select-Object -ExpandProperty value
+        $cert_base64 = $secretItem.fields | Where-Object { $_.label -eq "cert_base64" } | Select-Object -ExpandProperty value
+        $cert_pass   = $secretItem.fields | Where-Object { $_.label -eq "cert_pass" }   | Select-Object -ExpandProperty value
+
+        if (-not $client_id -or -not $tenant_id -or -not $cert_base64 -or [string]::IsNullOrWhiteSpace($cert_pass)) {
+            throw "❌ Missing required field(s) in 1Password item '$vault_api_creds_name'. Required: client_id, tenant_id, cert_base64, cert_pass"
+        }
+
+        if ($debugging) {
+            Write-TnLogMessage "🔎 client_id: $client_id"
+            Write-TnLogMessage "🔎 tenant_id: $tenant_id"
+        }
+
+        # Convert PFX from base64
+        $certBytes = [Convert]::FromBase64String($cert_base64)
+
+        # Set key storage flags
+        $certFlags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable -bor `
+                     [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet
+
+        # Load X509 certificate from byte array
+        $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+            $certBytes,
+            (ConvertTo-SecureString $cert_pass -AsPlainText -Force),
+            $certFlags
+        )
+
+		# $certificate.GetType().FullName
+
+	    # Make sure MSAL.PS is installed
+	    if (-not (Get-Module -ListAvailable -Name MSAL.PS)) {
+	        Install-Module MSAL.PS -Scope CurrentUser -Force
+	    }
+
+	    # Request token via MSAL.PS
+	    $msal_token = Get-MsalToken `
+	        -ClientId $client_id `
+	        -TenantId $tenant_id `
+	        -ClientCertificate $certificate `
+	        -Scopes "https://graph.microsoft.com/.default" `
+	        -ErrorAction Stop
+
+		if ($debugging) {
+			$msal_token | format-list *	
+		}
+
+	    return $msal_token.AccessToken
+
+    }
+    catch {
+        Write-TnLogMessage "❌ Connect-MgGraph failed: $($_.Exception.Message)"
+        # $Error[0] | Format-List * -Force
+        throw
+    }
+
+}
+
+
+
 function Connect-TnGraphAppCert {
     param (
         [string]$vault_api_creds_name,
