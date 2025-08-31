@@ -336,7 +336,10 @@ function Write-TnLogMessage {
         [string]$message
     )
 
-    $platform = Get-TnPlatform
+	$caller_name = $caller = (Get-PSCallStack | Where-Object { $_.InvocationInfo.MyCommand.Path })[0].InvocationInfo.MyCommand.Path
+	$caller_name = [System.IO.Path]::GetFileNameWithoutExtension($caller)
+    
+	$platform = Get-TnPlatform
 
     if (-not ($($global:log_name))) {
         $global:log_name = "log"
@@ -356,7 +359,12 @@ function Write-TnLogMessage {
         New-Item -ItemType Directory -Path $log_dir -Force | Out-Null
     }
 
-    $timestamped_msg = "$(Get-TnTimeStamp) $message"
+	if ($caller_name){
+		$timestamped_msg = "$(Get-TnTimeStamp) <$caller_name> $message"		
+	} else {
+	    $timestamped_msg = "$(Get-TnTimeStamp) $message"
+	}
+
     $timestamped_msg | Out-File -FilePath $log_filepath -Append
 
     if ($global:tnDebug) {
