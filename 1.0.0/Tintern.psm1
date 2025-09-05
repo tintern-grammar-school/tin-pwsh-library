@@ -721,7 +721,7 @@ function Send-TnPushoverNotification {
 
 }
 
-function Display-TnScriptMenu {
+function Start-TnScriptMenu {
     
 	param(
         [Parameter(Mandatory)][string]$menu_name,
