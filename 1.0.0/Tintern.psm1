@@ -320,7 +320,7 @@ function Get-TnVendorFromOui {
 	
 }
 
-function ConvertTo-TnMACAddress {
+function Convert-TnMACAddressFormat {
     param (
         [Parameter(Mandatory = $true)]
         [string]$MAC,
@@ -344,7 +344,7 @@ function ConvertTo-TnMACAddress {
     ($cleaned -split '(.{2})' | Where-Object { $_ }) -join $sep
 }
 
-function Trim-TnScreenRecording {
+function Edit-TnTrimScreenRecording {
     param(
         [string]$path,
         [string]$startTime,
@@ -461,7 +461,7 @@ function Convert-TnUTCtoAEST {
 }
 
 
-function Download-TnVideo {
+function Get-TnVideoFromURL {
     param(
         [Parameter(Mandatory)]
         [string]$url,
@@ -523,7 +523,7 @@ function Send-TnPushoverNotification {
 
 }
 
-function Show-TnScriptMenu {
+function Display-TnScriptMenu {
     
 	param(
         [Parameter(Mandatory)][string]$menu_name,
