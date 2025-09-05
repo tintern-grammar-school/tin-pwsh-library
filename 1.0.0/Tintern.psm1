@@ -1,3 +1,83 @@
+function Connect-TnGraphAppCertApiAccessToken {
+    param (
+        [string]$vault_api_creds_name,
+        #[bool]$debugging = $script:debugging ?? $false
+        [switch]$debugging
+    )
+
+    if (-not $vault_api_creds_name) {
+        throw "❌ vault_api_creds_name is required. Specify the name of the 1Password item to retrieve credentials from."
+    }
+
+    Write-TnLogMessage "🔐 Connecting to Microsoft Graph using certificate credentials from 1Password item '$vault_api_creds_name'..."
+
+    try {
+        $secretItemJson = op item get $vault_api_creds_name --format json 2>$null
+        if (-not $secretItemJson) {
+            throw "❌ 1Password item '$vault_api_creds_name' not found or accessible."
+        }
+
+        $secretItem = $secretItemJson | ConvertFrom-Json
+        $client_id   = $secretItem.fields | Where-Object { $_.label -eq "client_id" }   | Select-Object -ExpandProperty value
+        $tenant_id   = $secretItem.fields | Where-Object { $_.label -eq "tenant_id" }   | Select-Object -ExpandProperty value
+        $cert_base64 = $secretItem.fields | Where-Object { $_.label -eq "cert_base64" } | Select-Object -ExpandProperty value
+        $cert_pass   = $secretItem.fields | Where-Object { $_.label -eq "cert_pass" }   | Select-Object -ExpandProperty value
+
+        if (-not $client_id -or -not $tenant_id -or -not $cert_base64 -or [string]::IsNullOrWhiteSpace($cert_pass)) {
+            throw "❌ Missing required field(s) in 1Password item '$vault_api_creds_name'. Required: client_id, tenant_id, cert_base64, cert_pass"
+        }
+
+        if ($debugging) {
+            Write-TnLogMessage "🔎 client_id: $client_id"
+            Write-TnLogMessage "🔎 tenant_id: $tenant_id"
+        }
+
+        # Convert PFX from base64
+        $certBytes = [Convert]::FromBase64String($cert_base64)
+
+        # Set key storage flags
+        $certFlags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable -bor `
+                     [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet
+
+        # Load X509 certificate from byte array
+        $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+            $certBytes,
+            (ConvertTo-SecureString $cert_pass -AsPlainText -Force),
+            $certFlags
+        )
+
+		# $certificate.GetType().FullName
+
+	    # Make sure MSAL.PS is installed
+	    if (-not (Get-Module -ListAvailable -Name MSAL.PS)) {
+	        Install-Module MSAL.PS -Scope CurrentUser -Force
+	    }
+
+	    # Request token via MSAL.PS
+	    $msal_token = Get-MsalToken `
+	        -ClientId $client_id `
+	        -TenantId $tenant_id `
+	        -ClientCertificate $certificate `
+	        -Scopes "https://graph.microsoft.com/.default" `
+	        -ErrorAction Stop
+
+		if ($debugging) {
+			$msal_token | format-list *	
+		}
+
+	    return $msal_token.AccessToken
+
+    }
+    catch {
+        Write-TnLogMessage "❌ Connect-MgGraph failed: $($_.Exception.Message)"
+        # $Error[0] | Format-List * -Force
+        throw
+    }
+
+}
+
+
+
 function Connect-TnGraphAppCert {
     param (
         [string]$vault_api_creds_name,
@@ -107,6 +187,64 @@ function Connect-TnGraphAppSecret {
     }
 }
 
+
+
+function Get-TnRecentlyModifiedUsers {
+    param (
+        [int]$days,
+        [string]$only_domain,
+        [switch]$debugging
+    )
+
+    $since = (Get-Date).AddDays(-$days).ToString("o")
+
+    $logs = Get-MgAuditLogDirectoryAudit -All -Filter "activityDateTime ge $since and (activityDisplayName eq 'Update user')"
+
+    $changed_upns = @()
+
+    foreach ($log in $logs) {
+        foreach ($target in $log.TargetResources) {
+            if ($target.UserPrincipalName -like "*$only_domain" -and
+                $target.UserPrincipalName -notmatch '\d') {
+
+                # Flatten ModifiedProperties into a friendlier structure
+                $modProps = @()
+                if ($target.ModifiedProperties) {
+                    foreach ($prop in $target.ModifiedProperties) {
+                        $modProps += [PSCustomObject]@{
+                            Property   = $prop.DisplayName
+                            OldValue   = $prop.OldValue
+                            NewValue   = $prop.NewValue
+                        }
+                    }
+                }
+
+                $changed_upns += [PSCustomObject]@{
+                    UserPrincipalName   = $target.UserPrincipalName
+                    ActivityDateTime    = $log.ActivityDateTime
+					ActivityDateTimeAEST = $(Convert-TnUTCtoAEST -UtcIsoDate (Get-Date $log.ActivityDateTime -Format "o"))
+					ActivityDisplayName = $log.ActivityDisplayName
+                    Category            = $log.Category
+                    AdditionalDetails   = $log.AdditionalDetails -join ', '
+                    ModifiedProperties  = $modProps
+                }
+            }
+        }
+    }
+
+    if ($debugging) {
+        $logs | Format-List
+    }
+
+    # Deduplicate by UPN, keep latest change
+    $changed_upns = $changed_upns |
+                    Sort-Object UserPrincipalName, ActivityDateTimeAEST, ActivityDateTime -Descending |
+                    Group-Object UserPrincipalName |
+                    ForEach-Object { $_.Group[0] }
+
+    return $changed_upns
+}
+
 function Get-TnUserGroups {
     param (
         [string]$upn,
@@ -121,10 +259,59 @@ function Get-TnUserGroups {
 	} else {
 		$user_groups
 	}
-
-	
 	
 }
+
+function Get-TnAllActiveGroups {
+	param (
+		[string]$filter_string
+	)
+
+    Write-TnLogMessage "🔄 Getting all active groups..."
+
+	if ($filter_string){
+		$all_groups = Get-MgGroup -All -ConsistencyLevel eventual -CountVariable count -Filter "$filter_string"		
+	} else {
+		$all_groups = Get-MgGroup -All -ConsistencyLevel eventual -CountVariable count
+	}
+
+	Write-TnLogMessage "✅ $($all_groups.Count) active groups returned."
+
+	return $all_groups
+
+}
+
+function Get-TnFilterActiveGroupsByString {
+    param(
+		[object[]]$all_groups,
+		[string]$search_string
+	)
+
+	$filtered_groups = $all_groups | Where-Object { $_.DisplayName -like $search_string }
+	
+	Write-TnLogMessage "Total groups (for search) returned after filtering: $($filtered_groups.Count)"
+
+	return $filtered_groups
+}
+
+
+function Get-TnGroupMembers {
+	param (
+		[object[]]$groups
+	)
+	$group_members = @()
+	foreach ($group in $groups) {
+		$members = Get-MgGroupMember -GroupId $group.Id -All |
+		    Select-Object Id,
+		                  @{n="DisplayName";e={ $_.AdditionalProperties["displayName"] }},
+		                  @{n="UserPrincipalName";e={ $_.AdditionalProperties["userPrincipalName"] }}
+						  
+		if ($members) { $group_members += $members }
+	}
+	$group_members = $group_members | Sort-Object id -Unique
+	return $group_members
+}
+
 
 function Get-TnPlatform {
     # Returns 1 = Windows, 2 = macOS, 3 = Linux
@@ -149,7 +336,10 @@ function Write-TnLogMessage {
         [string]$message
     )
 
-    $platform = Get-TnPlatform
+	$caller_name = $caller = (Get-PSCallStack | Where-Object { $_.InvocationInfo.MyCommand.Path })[0].InvocationInfo.MyCommand.Path
+	$caller_name = [System.IO.Path]::GetFileNameWithoutExtension($caller)
+    
+	$platform = Get-TnPlatform
 
     if (-not ($($global:log_name))) {
         $global:log_name = "log"
@@ -169,7 +359,12 @@ function Write-TnLogMessage {
         New-Item -ItemType Directory -Path $log_dir -Force | Out-Null
     }
 
-    $timestamped_msg = "$(Get-TnTimeStamp) $message"
+	if ($caller_name){
+		$timestamped_msg = "$(Get-TnTimeStamp) <$caller_name> $message"		
+	} else {
+	    $timestamped_msg = "$(Get-TnTimeStamp) $message"
+	}
+
     $timestamped_msg | Out-File -FilePath $log_filepath -Append
 
     if ($global:tnDebug) {
@@ -448,7 +643,10 @@ function Convert-TnUTCtoAEST {
         [string]$UtcIsoDate
     )
 
-	Write-TnLogMessage "This function requires in put in ISO8601 format (e.g. from AW)."
+	if ($debugging){
+		Write-TnLogMessage "This function requires in put in ISO8601 format (e.g. from AW)."		
+	}
+	
     $UtcIsoDate = $UtcIsoDate -replace '\sUTC$', ''
 
     if ($IsMacOS) {
@@ -549,4 +747,45 @@ function Display-TnScriptMenu {
 	Write-Host ""
 	return $menu_command = $( Read-Host "What task do you want to run? (enter menu item number or 'exit')" )
 	
+}
+
+
+
+
+# ---------- JSON Save/Load ----------
+# Relies on $global:script_datafile
+
+function Write-TnObjectJSONFile {
+    param(
+        [Parameter(Mandatory)]$object
+    )
+
+    try {
+        $json = $object | ConvertTo-Json -Depth 10
+        $json | Out-File -FilePath "$global:script_datafile" -Encoding UTF8
+        Write-TnLogMessage "💾 Data saved to `"$global:script_datafile`""
+    }
+    catch {
+        Write-TnLogMessage "❌ Failed to save JSON: $_"
+    }
+}
+
+
+function Get-TnObjectJSONFile {
+
+    if (Test-Path $global:script_datafile) {
+        try {
+            $json = Get-Content -Path "$global:script_datafile" -Raw
+            Write-TnLogMessage "✅ JSON loaded successfully."
+            return $json | ConvertFrom-Json
+        }
+        catch {
+            Write-TnLogMessage "❌ Failed to load JSON."
+	        return $false
+        }
+    }
+    else {
+        Write-TnLogMessage "⚠️  No existing JSON file found at $global:script_datafile."
+        return $false
+    }
 }
