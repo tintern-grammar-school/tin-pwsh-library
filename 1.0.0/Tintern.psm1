@@ -336,7 +336,15 @@ function Write-TnLogMessage {
         [string]$message
     )
 
-	$caller_name = $caller = (Get-PSCallStack | Where-Object { $_.InvocationInfo.MyCommand.Path })[0].InvocationInfo.MyCommand.Path
+	#$caller_name = $caller = (Get-PSCallStack | Where-Object { $_.InvocationInfo.MyCommand.Path })[0].InvocationInfo.MyCommand.Path
+	
+	$callerFrame = (Get-PSCallStack | Where-Object { $_.InvocationInfo.MyCommand.Path }) | Select-Object -First 1
+	if ($callerFrame) {
+	    $caller_name = [System.IO.Path]::GetFileNameWithoutExtension($callerFrame.InvocationInfo.MyCommand.Path)
+	} else {
+	    $caller_name = $null
+	}
+	
 	$caller_name = [System.IO.Path]::GetFileNameWithoutExtension($caller)
     
 	$platform = Get-TnPlatform
