@@ -759,6 +759,34 @@ function Start-TnScriptMenu {
 
 
 
+function Write-TnInflux3 {
+    param(
+        [string]$Server,
+        [string]$Org,
+        [string]$Bucket,
+        [string]$Token,
+        [hashtable]$Metrics,
+        [hashtable]$Tags,
+        [string]$Measure
+    )
+
+	##	// Syntax
+	##	<table>[,<tag_key>=<tag_value>[,<tag_key>=<tag_value>]] <field_key>=<field_value>[,<field_key>=<field_value>] [<timestamp>]
+    ##	
+	##	// Example
+	##	myTable,tag1=value1,tag2=value2 fieldKey="fieldValue" 1556813561098000000
+
+    $tag_str = ($Tags.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ","
+    $metric_str = ($Metrics.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ","
+    $body = "$Measure,$tag_str $metric_str"
+
+    Invoke-RestMethod -Uri "$Server/api/v2/write?org=$Org&bucket=$Bucket&precision=s" `
+        -Headers @{ Authorization = "Token $Token" } `
+        -Method Post -Body $body
+}
+
+
+
 
 # ---------- JSON Save/Load ----------
 # Relies on $global:script_datafile
