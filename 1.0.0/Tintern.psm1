@@ -825,3 +825,84 @@ function Get-TnObjectJSONFile {
         return $false
     }
 }
+
+
+
+
+
+# ----- CREATING Temporary Access Passes ----- #
+function New-TnTemporaryAccessPass {
+    param(
+        [Parameter(Mandatory)][string] $upn,
+        [int] $duration_mins = 60,
+        [switch] $IsUsableOnce,
+        [datetime] $StartDateTime = (Get-Date),
+		[switch] $debugging
+    )
+
+    try {
+        # delegated scope required: UserAuthenticationMethod.ReadWrite.All
+        Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All","User.Read" -ErrorAction Stop
+    } catch {
+        Write-TnLogMessage "Connect-MgGraph failed: $($_.Exception.Message)"
+        throw
+    }
+	
+	$actor = (Get-MgContext).Account
+	
+	Write-TnLogMessage "User $actor started TAP Creation Script for ${upn}"
+
+    # find target user
+    try {
+        $target = Get-MgUser -UserId ${upn} -ErrorAction Stop
+    } catch {
+        Write-TnLogMessage "Failed to find user ${upn}: $($_.Exception.Message)"
+        throw
+    }
+
+	Write-TnLogMessage "DEBUG: duration_mins is $duration_mins"
+
+    Write-TnLogMessage "Will create TAP for user Id $($target.Id) (UPN: $($target.UserPrincipalName)); lifetime $duration_mins; IsUsableOnce = $IsUsableOnce; start = $StartDateTime"
+
+	$confirm = Read-Host "Continune? (y or yes)"
+	if ($confirm -ne "y" -and $confirm -ne "yes") {
+        Write-TnLogMessage "Operation cancelled."
+        return $null
+    }
+
+    # prepare body
+    $body = @{
+        startDateTime     = $StartDateTime.ToUniversalTime().ToString("o")
+        lifetimeInMinutes = [int]$duration_mins
+        isUsableOnce      = [bool]$IsUsableOnce.IsPresent
+    }
+
+    try {
+        # uses Microsoft.Graph.Identity.SignIns module cmdlet
+        $result = New-MgUserAuthenticationTemporaryAccessPassMethod -UserId $target.Id -BodyParameter $body -ErrorAction Stop
+    } catch {
+        Write-TnLogMessage "TAP creation failed: $($_.Exception.Message)"
+        throw
+    }
+
+    $tapValue = $result.TemporaryAccessPass
+    if ($tapValue) {
+
+        Write-TnLogMessage "Temporary Access Pass created for ${upn} by $actor. Duration (m): ${duration_mins}. Single Use? $([bool]$IsUsableOnce.IsPresent)"
+		
+        return @{
+            UserId = $target.Id
+            UserPrincipalName = $target.UserPrincipalName
+            TemporaryAccessPass = $tapValue
+            StartDateTime = $StartDateTime.ToUniversalTime()
+            LifetimeInMinutes = $duration_mins
+            IsUsableOnce = [bool]$IsUsableOnce.IsPresent
+            CreatedBy = $actor
+        }
+    } else {
+        Write-TnLogMessage "TAP created but no pass returned (unexpected). Result object: $($result | ConvertTo-Json -Depth 3)"
+
+        return $result
+
+    }
+}
