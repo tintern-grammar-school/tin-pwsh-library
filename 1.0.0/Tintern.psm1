@@ -906,3 +906,12 @@ function New-TnTemporaryAccessPass {
 
     }
 }
+
+function Update-TnUpnWithDomain {
+    param(
+		[string]$upn
+	)
+	# If $upn doesn't end with @tintern.vic.edu.au add it!
+	if ($upn -notlike '*@tintern.vic.edu.au') { $upn += '@tintern.vic.edu.au' }
+	return $upn
+}
