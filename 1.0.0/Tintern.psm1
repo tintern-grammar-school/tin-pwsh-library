@@ -188,6 +188,36 @@ function Connect-TnGraphAppSecret {
 }
 
 
+# FOR CONNECTING FROM A LINUX BOX WITH A LOCAL CERT PATH stored as "$entra_certificate"
+function Connect-TnGraphAppCertLocal {
+	param (
+	    [string]$certPath
+	)
+        
+    # Import Certificate to Auth to Entra App
+    [X509Certificate]$certificate = Get-PfxCertificate -FilePath "$certPath" -NoPromptForPassword
+    
+    if ($debugging) {
+            Write-TnLogMessage $certPath
+    }
+    
+    # Connect to MS Graph
+    if ($debugging) {
+            Write-TnLogMessage "Connecting MgGraph now."
+    }
+    
+    Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -Certificate $certificate -NoWelcome
+ 
+    if ($debugging) {
+    	(Get-Context).Scopes
+    }
+        
+}
+
+
+
+
+
 
 function Get-TnRecentlyModifiedUsers {
     param (
