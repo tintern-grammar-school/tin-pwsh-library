@@ -191,7 +191,10 @@ function Connect-TnGraphAppSecret {
 # FOR CONNECTING FROM A LINUX BOX WITH A LOCAL CERT PATH stored as "$entra_certificate"
 function Connect-TnGraphAppCertLocal {
 	param (
-	    [string]$certPath
+	    [string]$certPath,
+		[string]$ClientId,
+		[string]$TenantId
+		
 	)
         
     # Import Certificate to Auth to Entra App
