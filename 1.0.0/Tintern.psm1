@@ -212,7 +212,7 @@ function Connect-TnGraphAppCertLocal {
     Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -Certificate $certificate -NoWelcome
  
     if ($debugging) {
-    	(Get-Context).Scopes
+    	(Get-MgContext).Scopes
     }
         
 }
