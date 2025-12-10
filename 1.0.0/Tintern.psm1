@@ -354,16 +354,21 @@ function Get-TnBetaGroupMembers {
 	$group_members = @()
 	foreach ($group in $groups) {
 		
-		if ($debugging) { Write-TnLogMessage "Processing $($group.Name)" }
+		if ($debugging) { Write-TnLogMessage "Processing $($group.Name) ($($group.Id))" }
 		
 		$members = Get-MgBetaGroupMember -GroupId $group.Id -All |
 		    Select-Object Id,
 		                  @{n="DisplayName";e={ $_.AdditionalProperties["displayName"] }},
-		                  @{n="UserPrincipalName";e={ $_.AdditionalProperties["userPrincipalName"] }}
+		                  @{n="UserPrincipalName";e={ $_.AdditionalProperties["userPrincipalName"] }},
+        				  @{n="GroupId";e={ $group.Id }},
+						  @{n="GroupName";e={ $group.Name }}
+		if ($debugging) { Write-TnLogMessage $members }
 						  
 		if ($members) { $group_members += $members }
 	}
-	$group_members = $group_members | Sort-Object id -Unique
+	
+	#$group_members = $group_members | Sort-Object id -Unique
+	
 	return $group_members
 }
 
