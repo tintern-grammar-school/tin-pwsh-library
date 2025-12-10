@@ -826,13 +826,18 @@ function Write-TnInflux3 {
 
 function Write-TnObjectJSONFile {
     param(
-        [Parameter(Mandatory)]$object
+        [Parameter(Mandatory)]$object,
+		$path
     )
+
+	if (-not $path) {
+		$path = $global:script_datafile
+	}
 
     try {
         $json = $object | ConvertTo-Json -Depth 10
-        $json | Out-File -FilePath "$global:script_datafile" -Encoding UTF8
-        Write-TnLogMessage "💾 Data saved to `"$global:script_datafile`""
+        $json | Out-File -FilePath "$path" -Encoding UTF8
+        Write-TnLogMessage "💾 Data saved to `"$path`""
     }
     catch {
         Write-TnLogMessage "❌ Failed to save JSON: $_"
@@ -841,10 +846,17 @@ function Write-TnObjectJSONFile {
 
 
 function Get-TnObjectJSONFile {
+	param(
+		$path
+	)
 
-    if (Test-Path $global:script_datafile) {
+	if (-not $path) {
+		$path = $global:script_datafile
+	}
+
+    if (Test-Path $path) {
         try {
-            $json = Get-Content -Path "$global:script_datafile" -Raw
+            $json = Get-Content -Path "$path" -Raw
             Write-TnLogMessage "✅ JSON loaded successfully."
             return $json | ConvertFrom-Json
         }
@@ -854,7 +866,7 @@ function Get-TnObjectJSONFile {
         }
     }
     else {
-        Write-TnLogMessage "⚠️  No existing JSON file found at $global:script_datafile."
+        Write-TnLogMessage "⚠️  No existing JSON file found at $path."
         return $false
     }
 }
