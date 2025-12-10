@@ -345,6 +345,27 @@ function Get-TnGroupMembers {
 	return $group_members
 }
 
+function Get-TnBetaGroupMembers {
+	param (
+		$groups,
+		[switch]$debugging
+	)
+		
+	$group_members = @()
+	foreach ($group in $groups) {
+		
+		if ($debugging) { Write-TnLogMessage "Processing $($group.Name)" }
+		
+		$members = Get-MgBetaGroupMember -GroupId $group.Id -All |
+		    Select-Object Id,
+		                  @{n="DisplayName";e={ $_.AdditionalProperties["displayName"] }},
+		                  @{n="UserPrincipalName";e={ $_.AdditionalProperties["userPrincipalName"] }}
+						  
+		if ($members) { $group_members += $members }
+	}
+	$group_members = $group_members | Sort-Object id -Unique
+	return $group_members
+}
 
 function Get-TnPlatform {
     # Returns 1 = Windows, 2 = macOS, 3 = Linux
