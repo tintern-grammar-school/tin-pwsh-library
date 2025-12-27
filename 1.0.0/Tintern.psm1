@@ -980,8 +980,8 @@ function New-TnTemporaryAccessPass {
 
 function Update-TnUpnWithDomain {
     param(
-		[Parameter(Mandatory=$true)[string]$upn,
-		[Parameter(Mandatory=$true)[string]$domain
+		[Parameter(Mandatory=$true)][string]$upn,
+		[Parameter(Mandatory=$true)][string]$domain
 	)
 	# If $upn doesn't end with @tintern.vic.edu.au add it!
 	if ($upn -notlike "*$domain") { $upn += "@$domain" }
