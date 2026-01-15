@@ -844,6 +844,74 @@ function Write-TnInflux3 {
         -Method Post -Body $body
 }
 
+function Write-TnBetaInflux3 {
+    param(
+        [string]$Server,
+        [string]$Org,
+        [string]$Bucket,
+        [string]$Token,
+        [hashtable]$Metrics,
+        [hashtable]$Tags,
+        [string]$Measure
+    )
+
+    function Escape-InfluxKey([string]$s) {
+        if ($null -eq $s) { return "" }
+        # measurement, tag keys, field keys: escape commas, spaces, equals
+        return ($s -replace '\\','\\' -replace '([, =])','\$1')
+    }
+
+    function Escape-InfluxTagValue([string]$s) {
+        if ($null -eq $s) { return "" }
+        # tag values: escape commas, spaces, equals
+        return ($s -replace '\\','\\' -replace '([, =])','\$1')
+    }
+
+    function Format-InfluxFieldValue($v) {
+        if ($null -eq $v) { return $null }
+
+        if ($v -is [bool]) { return ($v.ToString().ToLower()) }
+
+        # integers should be suffixed with i (Influx line protocol)
+        if ($v -is [sbyte] -or $v -is [byte] -or $v -is [int16] -or $v -is [uint16] -or
+            $v -is [int32] -or $v -is [uint32] -or $v -is [int64] -or $v -is [uint64]) {
+            return "$v" + "i"
+        }
+
+        if ($v -is [single] -or $v -is [double] -or $v -is [decimal]) {
+            # Ensure invariant decimal separator
+            return ([string]::Format([System.Globalization.CultureInfo]::InvariantCulture, "{0}", $v))
+        }
+
+        # everything else => string field: MUST be double-quoted; escape \ and "
+        $s = [string]$v
+        $s = $s -replace '\\','\\\\' -replace '"','\"'
+        return '"' + $s + '"'
+    }
+
+    $m = Escape-InfluxKey $Measure
+
+    $tag_str = ($Tags.GetEnumerator() | ForEach-Object {
+        $k = Escape-InfluxKey $_.Key
+        $v = Escape-InfluxTagValue ([string]$_.Value)
+        "$k=$v"
+    }) -join ','
+
+    $field_pairs = @()
+    foreach ($kv in $Metrics.GetEnumerator()) {
+        $k = Escape-InfluxKey $kv.Key
+        $fv = Format-InfluxFieldValue $kv.Value
+        if ($null -ne $fv) { $field_pairs += "$k=$fv" }
+    }
+    $metric_str = $field_pairs -join ','
+
+    # If you ever call this with no tags, avoid "measure," (invalid)
+    $body = if ($tag_str) { "$m,$tag_str $metric_str" } else { "$m $metric_str" }
+
+    Invoke-RestMethod -Uri "$Server/api/v2/write?org=$Org&bucket=$Bucket&precision=s" `
+        -Headers @{ Authorization = "Token $Token" } `
+        -Method Post -Body $body
+}
 
 
 
