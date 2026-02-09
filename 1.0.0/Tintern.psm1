@@ -707,22 +707,50 @@ function Get-TnConvertVideoToTargetSize {
 function Convert-TnUTCtoAEST {
     param (
         [Parameter(Mandatory)]
-        [string]$UtcIsoDate
+        [string]$UtcIsoDate,
+		[switch]$source_entra,
+		[switch]$debugging	
     )
 
-	if ($debugging){
-		Write-TnLogMessage "This function requires in put in ISO8601 format (e.g. from AW)."		
-	}
-	
-    $UtcIsoDate = $UtcIsoDate -replace '\sUTC$', ''
+	if ($source_entra) {
+		
+	    if ($debugging){
+	        Write-TnLogMessage "Parsing UTC date string (AW non-ISO format) is: $UtcIsoDate"
+	    }
 
-    if ($IsMacOS) {
-        $utcDate = [DateTime]::Parse($UtcIsoDate, $null, [System.Globalization.DateTimeStyles]::AssumeUniversal)
-        $localDate = $utcDate.ToLocalTime()
-        return $localDate.ToString("yyyy-MM-dd HH:mm:ss 'AEST'")
-    } else {
-        Write-TnLogMessage "This function is intended to run on macOS with system timezone set to AEST."
-    }
+	    if ($IsMacOS) {
+
+			$dateString = "9/2/2026 12:18:13 am"
+			# Example for February 9th (Day/Month/Year):
+			$date = [datetime]::ParseExact($dateString, "d/M/yyyy h:mm:ss tt", $null)
+
+			# Convert to 'AUS Eastern Standard Time' (Sydney/Melbourne)
+			$targetZone = "AUS Eastern Standard Time"
+			$newDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($date, $targetZone)
+
+			# Output result
+			return $newDate.ToString("yyyy-MM-dd HH:mm:ss")
+
+	    }
+		
+	} else {
+		
+		if ($debugging){
+			Write-TnLogMessage "This function requires in put in ISO8601 format (e.g. from AW)."		
+		}
+	
+	    $UtcIsoDate = $UtcIsoDate -replace '\sUTC$', ''
+
+	    if ($IsMacOS) {
+	        $utcDate = [DateTime]::Parse($UtcIsoDate, $null, [System.Globalization.DateTimeStyles]::AssumeUniversal)
+	        $localDate = $utcDate.ToLocalTime()
+	        return $localDate.ToString("yyyy-MM-dd HH:mm:ss 'AEST'")
+	    } else {
+	        Write-TnLogMessage "This function is intended to run on macOS with system timezone set to AEST."
+	    }
+		
+	}
+
 }
 
 
