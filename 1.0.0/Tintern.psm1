@@ -1086,13 +1086,12 @@ function Update-TnUpnWithDomain {
 
 
 ### PARSING WAP VALUES FROM SNMP
-
 function ConvertFrom-TnCambiumSNMPClientTable {
     param(
-        [Parameter(Mandatory, ValueFromPipeline)]
-        [string[]]$InputObject
+        [Parameter(ValueFromPipeline)]
+        [AllowEmptyString()]
+        [string]$InputObject
     )
-
     begin {
         $lines = @()
     }
@@ -1119,7 +1118,7 @@ function ConvertFrom-TnCambiumSNMPClientTable {
                     'cambiumClientRadioIndex' {
                         $value = switch ($value) {
                             '2' { '5GHz' }
-                            '3' { '5GHz' }
+                            '3' { '6GHz' }
                             default { $value }
                         }
                     }
