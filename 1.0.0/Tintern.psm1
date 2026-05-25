@@ -1083,3 +1083,60 @@ function Update-TnUpnWithDomain {
 	if ($upn -notlike "*$domain") { $upn += "@$domain" }
 	return $upn
 }
+
+
+### PARSING WAP VALUES FROM SNMP
+
+function ConvertFrom-TnCambiumSNMPClientTable {
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string[]]$InputObject
+    )
+
+    begin {
+        $lines = @()
+    }
+
+    process {
+        $lines += $InputObject
+    }
+
+    end {
+        $csv_lines = $lines |
+            Where-Object { $_.Trim() -ne "" } |
+            Where-Object { $_ -notlike "SNMP table:*" }
+
+        $csv = $csv_lines | ConvertFrom-Csv
+
+        foreach ($row in $csv) {
+            $out = [ordered]@{}
+
+            foreach ($prop in $row.PSObject.Properties) {
+                $name = $prop.Name -replace '^cambium', ''
+                $value = $prop.Value
+
+                switch ($prop.Name) {
+                    'cambiumClientRadioIndex' {
+                        $value = switch ($value) {
+                            '2' { '5GHz' }
+                            '3' { '5GHz' }
+                            default { $value }
+                        }
+                    }
+
+                    'cambiumClientWlan' {
+                        $value = switch ($value) {
+                            '1' { 'Tintern TLS' }
+                            '2' { 'Tintern' }
+                            default { $value }
+                        }
+                    }
+                }
+
+                $out[$name] = $value
+            }
+
+            [pscustomobject]$out
+        }
+    }
+}
