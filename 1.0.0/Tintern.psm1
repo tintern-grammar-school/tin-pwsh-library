@@ -1112,25 +1112,18 @@ function ConvertFrom-TnCambiumSNMPClientTable {
                 $out = [ordered]@{}
 
                 foreach ($prop in $_.PSObject.Properties) {
-                    $name = $prop.Name -replace '^cambium', ''
+                    $name = $prop.Name -replace '^cambiumClient', ''
+                    $name = $name.ToLower()
                     $value = $prop.Value
 
 					if ($prop.Name -eq 'cambiumClientMACAddress') {
-
 					    $value = (
-
 					        $value -split ':' |
-
 					        ForEach-Object {
-
 					            [char][convert]::ToInt32($_,16)
-
 					        }
-
 					    ) -join ''
-
 						$value = Convert-TnMACAddressFormat -MAC $value
-
 					}
 					
                     if ($prop.Name -eq 'cambiumClientRadioIndex') {
