@@ -1115,6 +1115,22 @@ function ConvertFrom-TnCambiumSNMPClientTable {
                     $name = $prop.Name -replace '^cambium', ''
                     $value = $prop.Value
 
+					if ($prop.Name -eq 'cambiumClientMACAddress') {
+
+					    $value = (
+
+					        $value -split ':' |
+
+					        ForEach-Object {
+
+					            [char][convert]::ToInt32($_,16)
+
+					        }
+
+					    ) -join ''
+
+					}
+					
                     if ($prop.Name -eq 'cambiumClientRadioIndex') {
                         $value = switch ($value) {
                             '2' { '5GHz' }
