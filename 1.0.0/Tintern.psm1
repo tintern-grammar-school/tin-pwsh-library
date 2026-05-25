@@ -1123,7 +1123,8 @@ function ConvertFrom-TnCambiumSNMPClientTable {
 
 					        ForEach-Object {
 
-					            [char][convert]::ToInt32($_,16)
+					            $raw = [char][convert]::ToInt32($_,16)
+								Convert-TnMACAddressFormat -MAC $raw
 
 					        }
 
