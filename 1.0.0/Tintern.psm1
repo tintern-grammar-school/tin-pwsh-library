@@ -1135,7 +1135,7 @@ function ConvertFrom-TnCambiumSNMPClientTable {
                 $out[$name] = $value
             }
 
-            return [pscustomobject]$out
+            [pscustomobject]$out
         }
     }
 }
