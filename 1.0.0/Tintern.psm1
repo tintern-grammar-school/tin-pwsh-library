@@ -1092,30 +1092,30 @@ function ConvertFrom-TnCambiumSNMPClientTable {
         [AllowEmptyString()]
         [string]$InputObject
     )
+
     begin {
-        $lines = @()
+        $lines = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        $lines += $InputObject
+        if (-not [string]::IsNullOrWhiteSpace($InputObject)) {
+            $lines.Add($InputObject)
+        }
     }
 
     end {
-        $csv_lines = $lines |
-            Where-Object { $_.Trim() -ne "" } |
-            Where-Object { $_ -notlike "SNMP table:*" }
+        $csv_lines = $lines | Where-Object { $_ -notlike 'SNMP table:*' }
 
-        $csv = $csv_lines | ConvertFrom-Csv
+        $csv_lines |
+            ConvertFrom-Csv |
+            ForEach-Object {
+                $out = [ordered]@{}
 
-        foreach ($row in $csv) {
-            $out = [ordered]@{}
+                foreach ($prop in $_.PSObject.Properties) {
+                    $name = $prop.Name -replace '^cambium', ''
+                    $value = $prop.Value
 
-            foreach ($prop in $row.PSObject.Properties) {
-                $name = $prop.Name -replace '^cambium', ''
-                $value = $prop.Value
-
-                switch ($prop.Name) {
-                    'cambiumClientRadioIndex' {
+                    if ($prop.Name -eq 'cambiumClientRadioIndex') {
                         $value = switch ($value) {
                             '2' { '5GHz' }
                             '3' { '6GHz' }
@@ -1123,19 +1123,18 @@ function ConvertFrom-TnCambiumSNMPClientTable {
                         }
                     }
 
-                    'cambiumClientWlan' {
+                    if ($prop.Name -eq 'cambiumClientWlan') {
                         $value = switch ($value) {
                             '1' { 'Tintern TLS' }
                             '2' { 'Tintern' }
                             default { $value }
                         }
                     }
+
+                    $out[$name] = $value
                 }
 
-                $out[$name] = $value
+                [pscustomobject]$out
             }
-
-            [pscustomobject]$out
-        }
     }
 }
