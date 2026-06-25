@@ -939,6 +939,9 @@ function Write-TnBetaInflux3 {
     Invoke-RestMethod -Uri "$Server/api/v2/write?org=$Org&bucket=$Bucket&precision=s" `
         -Headers @{ Authorization = "Token $Token" } `
         -Method Post -Body $body
+	
+	return
+
 }
 
 
