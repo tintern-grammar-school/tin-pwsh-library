@@ -1096,6 +1096,10 @@ function ConvertFrom-TnCambiumSNMPClientTable {
         [string]$InputObject
     )
 
+	if ($InputObject -eq "CAMBIUM-MIB::cambiumClientTable: No entries") {
+		return "No Clients Found"
+	}
+
     begin {
         $lines = [System.Collections.Generic.List[string]]::new()
     }
