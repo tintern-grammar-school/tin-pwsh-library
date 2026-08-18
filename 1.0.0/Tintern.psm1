@@ -945,6 +945,95 @@ function Write-TnBetaInflux3 {
 }
 
 
+function Write-TnBetaInflux3Batch {
+    param(
+        [string]$Server,
+        [string]$Org,
+        [string]$Bucket,
+        [string]$Token,
+        [object[]]$Points
+    )
+
+    function Escape-InfluxKey([string]$s) {
+        if ($null -eq $s) { return "" }
+        return ($s -replace '\\','\\' -replace '([, =])','\$1')
+    }
+
+    function Escape-InfluxTagValue([string]$s) {
+        if ($null -eq $s) { return "" }
+        return ($s -replace '\\','\\' -replace '([, =])','\$1')
+    }
+
+    function Format-InfluxFieldValue($v) {
+        if ($null -eq $v) { return $null }
+
+        if ($v -is [bool]) {
+            return $v.ToString().ToLower()
+        }
+
+        if ($v -is [sbyte] -or $v -is [byte] -or
+            $v -is [int16] -or $v -is [uint16] -or
+            $v -is [int32] -or $v -is [uint32] -or
+            $v -is [int64] -or $v -is [uint64]) {
+            return "$v" + "i"
+        }
+
+        if ($v -is [single] -or $v -is [double] -or $v -is [decimal]) {
+            return ([string]::Format(
+                [System.Globalization.CultureInfo]::InvariantCulture,
+                "{0}",
+                $v
+            ))
+        }
+
+        $s = [string]$v
+        $s = $s -replace '\\','\\\\' -replace '"','\"'
+        return '"' + $s + '"'
+    }
+
+    $lines = foreach ($point in $Points) {
+
+        $m = Escape-InfluxKey $point.Measure
+
+        $tag_str = if ($point.Tags) {
+            ($point.Tags.GetEnumerator() | ForEach-Object {
+                $k = Escape-InfluxKey $_.Key
+                $v = Escape-InfluxTagValue ([string]$_.Value)
+                "$k=$v"
+            }) -join ','
+        } else {
+            ''
+        }
+
+        $field_pairs = foreach ($kv in $point.Metrics.GetEnumerator()) {
+            $k = Escape-InfluxKey $kv.Key
+            $fv = Format-InfluxFieldValue $kv.Value
+
+            if ($null -ne $fv) {
+                "$k=$fv"
+            }
+        }
+
+        $metric_str = $field_pairs -join ','
+
+        if ($tag_str) {
+            "$m,$tag_str $metric_str"
+        } else {
+            "$m $metric_str"
+        }
+    }
+
+    $body = $lines -join "`n"
+
+    Invoke-RestMethod `
+        -Uri "$Server/api/v2/write?org=$Org&bucket=$Bucket&precision=s" `
+        -Headers @{ Authorization = "Token $Token" } `
+        -Method Post `
+        -Body $body
+
+    return
+}
+
 
 # ---------- JSON Save/Load ----------
 # Relies on $global:script_datafile
