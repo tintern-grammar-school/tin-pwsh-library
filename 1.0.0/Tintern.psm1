@@ -278,6 +278,20 @@ function Get-TnRecentlyModifiedUsers {
     return $changed_upns
 }
 
+function Get-TnUserFromSynergeticId {
+    param (
+        [Parameter(Mandatory)]
+        [string]$Id
+    )
+
+    Get-MgUser `
+        -Filter "onPremisesExtensionAttributes/extensionAttribute14 eq '$Id'" `
+        -ConsistencyLevel eventual `
+        -CountVariable Count `
+        -Property Id,DisplayName,UserPrincipalName `
+		| Select-Object Id, DisplayName, UserPrincipalName
+}
+
 function Get-TnUserGroups {
     param (
         [string]$upn,
