@@ -351,7 +351,9 @@ function Get-TnGroupMembers {
 		$members = Get-MgGroupMember -GroupId $group.Id -All |
 		    Select-Object Id,
 		                  @{n="DisplayName";e={ $_.AdditionalProperties["displayName"] }},
-		                  @{n="UserPrincipalName";e={ $_.AdditionalProperties["userPrincipalName"] }}
+		                  @{n="UserPrincipalName";e={ $_.AdditionalProperties["userPrincipalName"] }},
+						  @{n="GroupId";e={ $group.Id }},
+						  @{n="GroupName";e={ $group.Name }}
 						  
 		if ($members) { $group_members += $members }
 	}
