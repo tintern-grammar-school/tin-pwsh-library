@@ -407,7 +407,8 @@ function Get-TnFSDate {
 }
 
 function Convert-TnAWTimeToLocal {
-    param([string]$aw_time)
+    param([Parameter(Mandatory)][string]$aw_time)
+	
     return [DateTime]::Parse($aw_time).ToLocalTime()
 }
 
