@@ -406,6 +406,11 @@ function Get-TnFSDate {
     return "{0:yyyy-MM-dd}" -f (Get-Date)
 }
 
+function Convert-TnAWTimeToLocal {
+    param([string]$aw_time)
+    return [DateTime]::Parse($aw_time).ToLocalTime()
+}
+
 function Write-TnLogMessage {
     param (
         [string]$message
