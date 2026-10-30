@@ -635,7 +635,8 @@ function Edit-TnTrimScreenRecording {
         [string]$endTime
     )
 
-    if (-not $path)       { $path      = Read-Host "Enter full path to video" }
+    if (-not $path) { $path = Read-Host "Enter full path to video" }
+
     if (-not $startTime -and -not $endTime) {
         Write-TnLogMessage "You must specify at least -startTime or -endTime"
         return
@@ -647,32 +648,42 @@ function Edit-TnTrimScreenRecording {
     $ext = [System.IO.Path]::GetExtension($path)
     $output = Join-Path $dir "$name.trimmed$ext"
 
-    # Trim before cut
+    $ffmpeg_args = @("-y", "-i", $path)
+
     if ($startTime) {
-        & $ffmpeg -i $path -ss 00:00:00 -to $startTime -c copy "$dir/part_before.mp4"
+        $ffmpeg_args += @("-ss", $startTime)
     }
 
-    # Trim after cut
     if ($endTime) {
-        & $ffmpeg -i $path -ss $endTime -c copy "$dir/part_after.mp4"
+        if ($startTime) {
+            $duration = ([TimeSpan]::Parse($endTime) - [TimeSpan]::Parse($startTime))
+
+            if ($duration.TotalSeconds -le 0) {
+                throw "endTime must be greater than startTime"
+            }
+
+            $ffmpeg_args += @("-t", $duration.ToString("hh\:mm\:ss\.fff"))
+        } else {
+            $ffmpeg_args += @("-to", $endTime)
+        }
     }
 
-    # Create concat file
-    $fileList = @()
-    if ($startTime) { $fileList += "file 'part_before.mp4'" }
-    if ($endTime)   { $fileList += "file 'part_after.mp4'" }
+    $ffmpeg_args += @(
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "18",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        $output
+    )
 
-    $fileList | Set-Content -Path "$dir/filelist.txt" -Encoding ascii
+    & $ffmpeg @ffmpeg_args
 
-    # Combine parts
-    Push-Location $dir
-    & $ffmpeg -f concat -safe 0 -i "filelist.txt" -c copy "$output"
-    Pop-Location
+    if ($LASTEXITCODE -ne 0) {
+        throw "FFmpeg trimming failed."
+    }
 
-    # Cleanup
-    if (Test-Path "$dir/part_before.mp4") { Remove-Item "$dir/part_before.mp4" }
-    if (Test-Path "$dir/part_after.mp4")  { Remove-Item "$dir/part_after.mp4" }
-    Remove-Item "$dir/filelist.txt"
+    Write-TnLogMessage "Trimmed video saved to: $output"
 }
 
 
