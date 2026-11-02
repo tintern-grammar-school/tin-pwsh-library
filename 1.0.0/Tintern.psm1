@@ -969,6 +969,10 @@ function Write-TnBetaInflux3 {
     # If you ever call this with no tags, avoid "measure," (invalid)
     $body = if ($tag_str) { "$m,$tag_str $metric_str" } else { "$m $metric_str" }
 
+	if ($debugging) {
+		Write-Host "InfluxDB line protocol: $body"
+	}
+	
     Invoke-RestMethod -Uri "$Server/api/v2/write?org=$Org&bucket=$Bucket&precision=s" `
         -Headers @{ Authorization = "Token $Token" } `
         -Method Post -Body $body
