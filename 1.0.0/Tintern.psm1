@@ -406,6 +406,11 @@ function Get-TnFSDate {
     return "{0:yyyy-MM-dd}" -f (Get-Date)
 }
 
+# Returns date in format: 2020-02-18 09h21m
+function Get-TnFSDateTime {
+    return Get-Date -Format "yyyyMMdd_HH'h'mm'm'"
+}
+
 function Convert-TnAWTimeToLocal {
     param([Parameter(Mandatory)][string]$aw_time)
 	
